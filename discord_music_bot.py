@@ -6,6 +6,7 @@ Attempt to build a bot that plays music on discord
 Plans:
     Change queue to dequeue ( :| )
     Implement Soundcloud support ( :) )
+    Implement support for local files ( :| )
 '''
 
 from pytube import YouTube
@@ -18,7 +19,7 @@ import os
 import queue
 
 # String constants
-TOKEN = 'your_token_here'
+TOKEN = 'ODM1MDE0MjU3ODcxMjkwMzY5.GPkcfA.ZO6I_fJ5cDsm8Q_JUMYEZuGuH1vqvgeXyR-gt4'
 OPATH = 'temp'
 FILE = 'audio'
 YT = 'youtube.com'
@@ -55,7 +56,6 @@ async def join(ctx):
 # Leaves voice channel and clears queue
 @bot.command()
 async def leave(ctx):
-    
     if check_vc(ctx) == False: return
         
     bot.loop.create_task(clear_queue(ctx))
@@ -198,6 +198,30 @@ async def remove_last(ctx):
         return
         
     await ctx.send("Developer hasn't implemented this yet")
+
+
+# Administrator commands
+# Remove previous message history from bot
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def clear_history(ctx, limit):
+    channel = ctx.channel
+    limit = int(limit)
+    async for message in channel.history(limit=limit+1):
+        await message.delete()
+        
+    await ctx.send(f"Deleted past {limit} messages")
+
+
+# Wipes entire chat history in a channel
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def wipe(ctx):
+    channel = ctx.channel
+    async for message in channel.history(limit=None):
+        await message.delete()
+        
+    await ctx.send("Wiped history")
 
 
 # This command is for putting the bot offline manually from the discord app itself
