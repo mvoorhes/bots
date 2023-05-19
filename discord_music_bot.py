@@ -19,7 +19,7 @@ import os
 import queue
 
 # String constants
-TOKEN = 'ODM1MDE0MjU3ODcxMjkwMzY5.GPkcfA.ZO6I_fJ5cDsm8Q_JUMYEZuGuH1vqvgeXyR-gt4'
+TOKEN = 'your_token_here'
 OPATH = 'temp'
 FILE = 'audio'
 YT = 'youtube.com'
