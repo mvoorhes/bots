@@ -16,6 +16,7 @@ import discord
 import sys
 import os
 import queue
+import signal
 
 # String constants
 TOKEN = 'your_token_here'
@@ -26,8 +27,26 @@ YT_ALT = 'youtu.be'
 SC = 'soundcloud.com'
 
 scapi = SoundcloudAPI()
-
 playlist = queue.Queue(maxsize=10)  # change this to dequeue later
+current = "None"
+
+# Help_desk command calls this
+helpful_information = """
+Commands:
+~join: bot joins voice channel you're currently in
+~leave: bot leaves voice channel it's currently in
+    Clears queue & removes any local files it has downloaded
+~play [url]: bot plays music from either a YouTube or Soundcloud URL
+    Adds to queue if music is already playing
+~pause: pauses track that is currently playing
+~resume: resumes track that is currently paused
+~skip: skips song that is currently playing
+~queue: prints current queue of songs
+~clear_queue: clears queue
+~remove_next: removes next track from the queue
+~is_playing: returns track that bot is currently playing
+~up_next [queue #]: returns track at that position in the queue
+"""
 
 intents = discord.Intents.default()
 intents.voice_states = True
@@ -38,6 +57,13 @@ bot = commands.Bot(command_prefix='~', intents=intents)
 @bot.event
 async def on_ready():
     print(f'Logged on as {bot.user.name}')
+
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    if isinstance(args[0], TimeoutError):
+        print("TimeoutError; bot will go offline now")
+        await bot.close()
 
 
 # Joins without playing anything
@@ -69,9 +95,13 @@ async def play(ctx, url):
     if ctx.voice_client is None:
         await ctx.send("Attempting to join VC rn")
         await bot.loop.create_task(join(ctx))
-        
-    voice_channel = ctx.author.voice.channel
-    voice_client = ctx.voice_client
+    
+    try:
+        voice_channel = ctx.author.voice.channel
+        voice_client = ctx.voice_client
+    except AttributeError:
+        await ctx.send(f"Can't play; {ctx.author.name} is not in VC")
+    
     
     if YT in url or YT_ALT in url:
         # User sends youtube link
@@ -165,8 +195,21 @@ async def queue(ctx):
         
     queue_list = list(playlist.queue)
     print(queue_list)
-    for item in queue_list:
-        await ctx.send(os.path.basename(item))
+    
+    
+    queue_block = """
+    """
+    
+    try:
+        for item in queue_list:
+            queue_block += os.path.basename(item)
+            queue_block += "\n"
+            
+        await ctx.send(f"```\n{queue_block}\n```")
+    except:
+        for item in queue_list:
+            await ctx.send(os.path.basename(item))
+     
 
 
 # Clears queue and deletes local files
@@ -226,11 +269,40 @@ async def Ham(ctx):
     print("Bar")
 
 
+@bot.command()
+async def help_desk(ctx):
+    await ctx.send(f"```\n{helpful_information}\n```")
+
+
+@bot.command()
+async def is_playing(ctx):
+    await ctx.send(f"Currently playing: {current}")
+    
+@bot.command()
+async def up_next(ctx, pos):
+
+    if pos is None:
+        await ctx.send(f"Next: {os.base.pathname(playlist.queue[0])}")
+        return
+
+    pos = int(pos)
+    queue_list = list(playlist.queue)
+    index = 0
+    while index != pos:
+        index += 1
+
+    item = queue_list[index]
+    await ctx.send(f"{pos}: {os.base.pathname(item)}")
+
+
+
 # Non commands that are called by the bot
 # Plays next track in queue
 async def play_next(ctx):
     audio_file = playlist.get()
     voice_client = ctx.voice_client
+    current = os.path.basename(audio_file)  # gets name of current track
+    print(current)
     await ctx.send(f"Now Playing: {os.path.basename(audio_file)}")
     
     def after_playing(error):
@@ -251,6 +323,13 @@ def check_vc(ctx):
         return True
 
 
+def signal_handler(signal, frame):
+    print("handling bot disconnection rn")
+    bot.loop.run_until_complete(bot.close())
+    sys.exit(1)
+    
+
+signal.signal(signal.SIGTSTP, signal_handler)
 bot.run(TOKEN)
 
 
