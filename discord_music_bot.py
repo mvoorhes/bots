@@ -10,9 +10,9 @@ Plans:
 
 from pytube import YouTube
 from discord.ext import commands
-from glob import glob
 from sclib import SoundcloudAPI, Track
 import discord
+import glob
 import sys
 import os
 import queue
@@ -149,9 +149,7 @@ async def play(ctx, url):
 # Pauses whatever audio is currently playing
 @bot.command()
 async def pause(ctx):
-
     if check_vc(ctx) == False: return
-
     voice_client = ctx.voice_client
     if voice_client.is_playing():
         await ctx.send("Pausing...")
@@ -163,9 +161,7 @@ async def pause(ctx):
 # Resumes audio if audio is playing
 @bot.command()
 async def resume(ctx):
-
     if check_vc(ctx) == False: return
-        
     voice_client = ctx.voice_client
     if voice_client.is_paused():
         await ctx.send("Playing...")
@@ -178,12 +174,8 @@ async def resume(ctx):
 @bot.command()
 async def skip(ctx):
     if check_vc(ctx) == False: return
-        
     voice_client = ctx.voice_client
     voice_client.stop()
-    
-    if playlist.empty() == False:
-        bot.loop.create_task(play_next(ctx))
 
 
 # Prints queue
@@ -192,23 +184,15 @@ async def queue(ctx):
     if playlist.empty():
         await ctx.send("Queue is empty")
         return
+
+    queue_block = """"""
+    
+    print("Using queue functions")
+    for item in playlist.queue:
+        queue_block += os.path.basename(item)
+        queue_block += "\n"
         
-    queue_list = list(playlist.queue)
-    print(queue_list)
-    
-    
-    queue_block = """
-    """
-    
-    try:
-        for item in queue_list:
-            queue_block += os.path.basename(item)
-            queue_block += "\n"
-            
-        await ctx.send(f"```\n{queue_block}\n```")
-    except:
-        for item in queue_list:
-            await ctx.send(os.path.basename(item))
+    await ctx.send(f"```\n{queue_block}\n```")
      
 
 
@@ -269,31 +253,29 @@ async def Ham(ctx):
     print("Bar")
 
 
+# Prints helpful information for users
 @bot.command()
 async def help_desk(ctx):
     await ctx.send(f"```\n{helpful_information}\n```")
 
 
+# Prints current track that is playing
 @bot.command()
 async def is_playing(ctx):
     await ctx.send(f"Currently playing: {current}")
     
-@bot.command()
-async def up_next(ctx, pos):
 
-    if pos is None:
-        await ctx.send(f"Next: {os.base.pathname(playlist.queue[0])}")
+# Prints track in queue corresponding to pos
+# Prints next track if pos isn't defined
+@bot.command()
+async def up_next(ctx, pos=1):
+    if pos > playlist.qsize():
+        await ctx.send("Index out of range")
         return
 
     pos = int(pos)
-    queue_list = list(playlist.queue)
-    index = 0
-    while index != pos:
-        index += 1
-
-    item = queue_list[index]
-    await ctx.send(f"{pos}: {os.base.pathname(item)}")
-
+    item = playlist.queue[pos - 1]
+    await ctx.send(f"{pos}: {os.path.basename(item)}")
 
 
 # Non commands that are called by the bot
@@ -301,14 +283,17 @@ async def up_next(ctx, pos):
 async def play_next(ctx):
     audio_file = playlist.get()
     voice_client = ctx.voice_client
+    global current
     current = os.path.basename(audio_file)  # gets name of current track
-    print(current)
+    print(f"Current After: {current}")
     await ctx.send(f"Now Playing: {os.path.basename(audio_file)}")
     
     def after_playing(error):
         os.remove(audio_file)
         if playlist.empty() == False:
             bot.loop.create_task(play_next(ctx))
+        else:
+            bot.loop.create_task(leave(ctx))
     
     voice_client.play(discord.FFmpegPCMAudio(audio_file), after=after_playing)
 
@@ -323,13 +308,25 @@ def check_vc(ctx):
         return True
 
 
+# Handles ctrl z call
 def signal_handler(signal, frame):
-    print("handling bot disconnection rn")
+    print("\nhandling bot disconnection rn\n")
+    
+    # Removes all files from temp folder
+    files = glob.glob('/temp/')
+    for file in files:
+        os.remove(file)
+        
+    # closes bot
     bot.loop.run_until_complete(bot.close())
     sys.exit(1)
     
 
-signal.signal(signal.SIGTSTP, signal_handler)
-bot.run(TOKEN)
+
+
+# main function
+if __name__ == "__main__":
+    signal.signal(signal.SIGTSTP, signal_handler)
+    bot.run(TOKEN)
 
 
